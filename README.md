@@ -26,6 +26,24 @@ The IDS detects and classifies attacks into four main categories:
 ## 📂 Dataset Used
 We utilize the **KDD Cup 1999** dataset, a well-known benchmark dataset for evaluating IDS performance. It contains various network traffic records, each labeled as normal or an attack type.
 
+The raw `.gz` archives (~35MB) are **not checked into this repo** — download them
+from the [UCI KDD Cup 1999 archive](http://kdd.ics.uci.edu/databases/kddcup99/kddcup99.html)
+and place them under `dataset/`:
+
+```bash
+mkdir -p dataset
+cd dataset
+curl -O http://kdd.ics.uci.edu/databases/kddcup99/kddcup.data.gz
+curl -O http://kdd.ics.uci.edu/databases/kddcup99/kddcup.data_10_percent.gz
+curl -O http://kdd.ics.uci.edu/databases/kddcup99/corrected.gz
+curl -O http://kdd.ics.uci.edu/databases/kddcup99/kddcup.testdata.unlabeled.gz
+curl -O http://kdd.ics.uci.edu/databases/kddcup99/kddcup.testdata.unlabeled_10_percent.gz
+curl -O http://kdd.ics.uci.edu/databases/kddcup99/kddcup.newtestdata_10_percent_unlabeled.gz
+```
+
+`dataset/kddcup.names` and `dataset/training_attack_types` (feature/label
+reference files, not raw traffic data) are still tracked in the repo.
+
 ## 📌 Machine Learning Models
 To achieve accurate intrusion detection, we apply and compare the following models:
 - 🤖 **Gaussian Naive Bayes**
@@ -44,17 +62,11 @@ To achieve accurate intrusion detection, we apply and compare the following mode
 ## ⚡ Installation & Usage
 ```bash
 # Clone the repository
-git clone https://github.com/your-username/IDS-ML.git
-cd IDS-ML
+git clone https://github.com/HumerousFi/IDS-using-ML-algorithms.git
+cd IDS-using-ML-algorithms
 
-# Install dependencies
-pip install -r requirements.txt
-
-# Train the model
-python train_model.py
-
-# Evaluate the model
-python evaluate_model.py
+# Download the dataset (see "Dataset Used" above), then run
+python main.py
 ```
 
 ## 🔮 Future Enhancements
@@ -63,9 +75,8 @@ python evaluate_model.py
 - 🔍 **Enhanced feature engineering for better accuracy**
 
 ## 📜 License
-This project is licensed under the **MIT License**. Feel free to contribute and improve the system!
+This project is licensed under the **MIT License** — see [LICENSE](LICENSE).
 
 ## 🙌 Acknowledgments
 - 📂 **KDD Cup 1999** for providing the dataset.
 - 🛠 **Open-source libraries** and community contributions.
-
