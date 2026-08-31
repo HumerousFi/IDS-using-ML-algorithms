@@ -1,0 +1,3 @@
+dataset/*.gz
+__pycache__/
+*.pyc
