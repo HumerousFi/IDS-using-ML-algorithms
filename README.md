@@ -1,82 +1,78 @@
 # Intrusion Detection System Using Machine Learning
 
-## 📌 Overview
-In the modern digital era, cybersecurity threats are increasing at an alarming rate. Our **Intrusion Detection System (IDS)** leverages machine learning to identify and prevent unauthorized access attempts, ensuring network security against cyber threats.
+Trains and compares 5 classifiers (Naive Bayes, Decision Tree, Random Forest, Linear SVM,
+Logistic Regression) for network intrusion detection on the KDD Cup 1999 dataset, classifying
+traffic into `normal` or one of 4 attack categories (`dos`, `probe`, `r2l`, `u2r`).
 
-## ❓ Problem Statement
-The goal is to develop a **predictive model** capable of distinguishing between normal network connections and malicious intrusions, including:
-- Denial-of-service (DoS) attacks
-- Unauthorized access attempts
-- Probing activities
+## Design
 
-## 🔥 Key Features
-- ✅ **Real-time Intrusion Detection**: Monitors and classifies network traffic.
-- 🔍 **Machine Learning Algorithms**: Implements multiple classification techniques.
-- 📊 **Comprehensive Dataset**: Uses the KDD Cup 1999 dataset.
-- 📈 **Detailed Analysis**: Evaluates model performance across various metrics.
-- 🔧 **Scalability**: Designed for adaptation to real-world network security systems.
+- **Dataset loading via `sklearn.datasets.fetch_kddcup99`**, not a manual `curl` of the UCI
+  archive's raw `.gz` files — that URL now returns 403 Forbidden, so the old manual-download
+  approach doesn't even work anymore. sklearn's fetcher handles caching and parsing for you.
+- **Correlation-based feature dropping is computed, not hardcoded.** `ids/features.py` computes
+  the actual correlation matrix and drops any column correlated above a threshold (default 0.95)
+  with one already kept — the columns that get dropped are a property of the data, not a fixed
+  list decided in advance. (For what it's worth: this run's computed threshold independently
+  landed on the same 8 columns commonly cited for this dataset — `num_root`, `srv_serror_rate`,
+  `srv_rerror_rate`, `dst_host_srv_serror_rate`, `dst_host_serror_rate`, `dst_host_rerror_rate`,
+  `dst_host_srv_rerror_rate`, `dst_host_same_srv_rate` — which is a reasonable outcome given
+  they really are that correlated, not evidence the threshold approach doesn't matter.)
+- **Categorical columns use `LabelEncoder`**, not a hand-typed dict mapping each known category to
+  a hardcoded integer — a hardcoded dict throws `KeyError` the moment it sees a category it didn't
+  enumerate in advance; `LabelEncoder` derives its mapping from whatever's actually in the data.
+- **Stratified train/test split.** This dataset is severely imbalanced — in the 10% sample, `dos`
+  is ~79% of all rows while `u2r` is 52 rows total, 0.01%. An unstratified split risks a test set
+  with too few `u2r`/`r2l` examples to evaluate at all.
+- **Linear SVM, not an RBF-kernel SVC.** `SVC` with the default RBF kernel is roughly
+  O(n²)–O(n³) in the number of training rows, impractical on ~350k training rows. `LinearSVC`
+  scales close to linearly.
+- **Real per-class precision/recall/F1**, not just overall accuracy — see below for why that
+  distinction actually matters here.
+- Tests (`tests/test_features.py`) cover the encoding and correlation-dropping logic against small
+  synthetic data, independent of the real ~500k-row dataset.
 
-## 🛡 Attack Categories
-The IDS detects and classifies attacks into four main categories:
-- **🛑 Denial-of-Service (DoS)**: Flooding the network to make services unavailable.
-- **🔓 Remote-to-Local (R2L)**: Unauthorized remote access attempts.
-- **⚠️ User-to-Root (U2R)**: Privilege escalation attacks.
-- **🔍 Probing**: Scanning for vulnerabilities and weak points.
+## Results (real run, nothing hardcoded)
 
-## 📂 Dataset Used
-We utilize the **KDD Cup 1999** dataset, a well-known benchmark dataset for evaluating IDS performance. It contains various network traffic records, each labeled as normal or an attack type.
-
-The raw `.gz` archives (~35MB) are **not checked into this repo** — download them
-from the [UCI KDD Cup 1999 archive](http://kdd.ics.uci.edu/databases/kddcup99/kddcup99.html)
-and place them under `dataset/`:
-
-```bash
-mkdir -p dataset
-cd dataset
-curl -O http://kdd.ics.uci.edu/databases/kddcup99/kddcup.data.gz
-curl -O http://kdd.ics.uci.edu/databases/kddcup99/kddcup.data_10_percent.gz
-curl -O http://kdd.ics.uci.edu/databases/kddcup99/corrected.gz
-curl -O http://kdd.ics.uci.edu/databases/kddcup99/kddcup.testdata.unlabeled.gz
-curl -O http://kdd.ics.uci.edu/databases/kddcup99/kddcup.testdata.unlabeled_10_percent.gz
-curl -O http://kdd.ics.uci.edu/databases/kddcup99/kddcup.newtestdata_10_percent_unlabeled.gz
+```
+Naive Bayes          train time:   0.28s   accuracy: 0.8897
+Decision Tree        train time:   0.98s   accuracy: 0.9995
+Random Forest        train time:   3.23s   accuracy: 0.9997
+Linear SVM           train time:   4.65s   accuracy: 0.9973
+Logistic Regression  train time:   5.13s   accuracy: 0.9936
 ```
 
-`dataset/kddcup.names` and `dataset/training_attack_types` (feature/label
-reference files, not raw traffic data) are still tracked in the repo.
+**Why overall accuracy alone is close to meaningless on this dataset:** Naive Bayes posts 89%
+accuracy, which sounds reasonable in isolation — until the per-class breakdown shows its precision
+on the `probe` class is 0.10 and on `u2r` is 0.01 (despite high recall on both), meaning it's
+flagging enormous numbers of false positives for the classes that matter most operationally. A
+classifier that mostly predicts the dominant class (`dos`, 79% of the data) can score high on
+accuracy while being nearly useless at the actual security-relevant task: catching the rare
+attack types.
 
-## 📌 Machine Learning Models
-To achieve accurate intrusion detection, we apply and compare the following models:
-- 🤖 **Gaussian Naive Bayes**
-- 🌳 **Decision Tree**
-- 🌲 **Random Forest**
-- 🔥 **Support Vector Machine (SVM)**
-- 🏛 **Logistic Regression**
+**The harder, more interesting result:** every single model — including Random Forest at 99.97%
+overall accuracy — is worst at detecting `u2r` (User-to-Root / privilege escalation) specifically:
 
-## 🚀 Implementation Approach
-1. **📌 Data Preprocessing**: Cleaning and transforming the dataset.
-2. **📊 Feature Selection**: Extracting relevant network traffic features.
-3. **🤖 Model Training**: Applying machine learning algorithms.
-4. **📈 Evaluation & Optimization**: Comparing results and improving accuracy.
-5. **🛠 Deployment & Monitoring**: Future integration into real-world systems.
+| Model | u2r precision | u2r recall | u2r F1 |
+|---|---|---|---|
+| Naive Bayes | 0.01 | 0.94 | 0.02 |
+| Decision Tree | 0.56 | 0.56 | 0.56 |
+| Random Forest | 0.80 | 0.50 | 0.62 |
+| Linear SVM | 0.90 | 0.56 | 0.69 |
+| Logistic Regression | 0.91 | 0.62 | 0.74 |
 
-## ⚡ Installation & Usage
+`u2r` is both the rarest class (52 total rows in the full 10% sample, 16 in this test split) and
+arguably the most severe — successful privilege escalation is worse than a detected port scan.
+Every model here catches barely half of them even at its best. That's a genuinely useful,
+non-obvious finding an accuracy-only comparison would completely hide.
+
+## Usage
+
 ```bash
-# Clone the repository
-git clone https://github.com/HumerousFi/IDS-using-ML-algorithms.git
-cd IDS-using-ML-algorithms
-
-# Download the dataset (see "Dataset Used" above), then run
+pip install -e ".[dev]"
 python main.py
+pytest
 ```
 
-## 🔮 Future Enhancements
-- 🔄 **Integration with real-time network monitoring tools**
-- 🤖 **Implementation of deep learning techniques**
-- 🔍 **Enhanced feature engineering for better accuracy**
+## License
 
-## 📜 License
-This project is licensed under the **MIT License** — see [LICENSE](LICENSE).
-
-## 🙌 Acknowledgments
-- 📂 **KDD Cup 1999** for providing the dataset.
-- 🛠 **Open-source libraries** and community contributions.
+MIT — see [LICENSE](LICENSE).
